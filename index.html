@@ -82,6 +82,7 @@
   }
   .chip.on { background: var(--ink); border-color: var(--ink); color: var(--accent-ink); }
   .chip.wide { width: auto; padding: 0 12px; }
+  .chip.toggle { height: 40px; font-size: 15px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
   .btn {
     font: inherit;
@@ -138,6 +139,21 @@
     border: 1.5px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer;
   }
 
+  .site-footer {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+    border-top: 1.5px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .site-footer strong { color: var(--ink); font-size: 14px; }
+  .site-footer p { margin: 6px 0; }
+  .site-footer ul { margin: 6px 0; padding-left: 18px; }
+  .site-footer a { color: var(--ink); }
+  .site-footer .note { font-size: 12px; }
+
   .lightbox {
     position: fixed; inset: 0;
     background: rgba(30, 24, 16, .82);
@@ -165,9 +181,12 @@
   <div class="field">
     <label for="theme">테마</label>
     <select id="theme">
-      <option value="retro">레트로 크림</option>
+      <option value="classicLine">클래식 라인</option>
       <option value="classic">클래식 화이트</option>
+      <option value="retro">레트로 크림</option>
+      <option value="retroWhite">레트로 화이트</option>
       <option value="mint">민트 소다</option>
+      <option value="mintWhite">민트 화이트</option>
     </select>
   </div>
   <div class="field">
@@ -176,6 +195,10 @@
       <option value="0">일요일</option>
       <option value="1">월요일</option>
     </select>
+  </div>
+  <div class="field">
+    <label for="grainBtn">종이 질감</label>
+    <button class="chip wide toggle" id="grainBtn" type="button" aria-pressed="false">종이 질감 꺼짐</button>
   </div>
   <div class="field">
     <label>저장할 달</label>
@@ -189,6 +212,17 @@
 
 <div class="status" id="status"></div>
 <main class="grid" id="grid"></main>
+<footer class="site-footer">
+  <strong>폰트 라이선스 안내</strong>
+  <p>이 제작기가 달력 이미지에 사용하는 폰트는 모두 <a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL Open Font License 1.1</a> 폰트로, 개인·상업적 용도 모두 무료로 사용할 수 있습니다. 만든 달력 PNG는 판매용 굿즈, 인쇄물, 영상, 웹 콘텐츠 등에 걱정 없이 활용하세요.</p>
+  <ul>
+    <li><a href="https://fonts.google.com/specimen/Noto+Sans+KR" target="_blank" rel="noopener">Noto Sans KR</a> — Google · OFL 1.1</li>
+    <li><a href="https://fonts.google.com/specimen/Noto+Serif+KR" target="_blank" rel="noopener">Noto Serif KR</a> — Google · OFL 1.1</li>
+    <li><a href="https://fonts.google.com/specimen/DM+Serif+Display" target="_blank" rel="noopener">DM Serif Display</a> — Colophon Foundry · OFL 1.1</li>
+    <li><a href="https://fonts.google.com/specimen/Jua" target="_blank" rel="noopener">Jua (주아체)</a> — 우아한형제들 · OFL 1.1</li>
+  </ul>
+  <p class="note">OFL은 폰트로 만든 결과물(이미지·인쇄물)의 상업적 사용을 허용합니다. 단, 폰트 파일 자체를 단독으로 판매하는 것은 금지됩니다.</p>
+</footer>
 <div class="lightbox" id="lightbox"><img alt="달력 확대 보기"></div>
 
 <script>
@@ -200,7 +234,7 @@
     retro: {
       bg: '#f3ead7', ink: '#2e2a25', sun: '#c8442f', sat: '#2e6e8e',
       dim: '#cfc3ab', line: '#8f846f', soft: '#d9ccb0', headerBg: '#e3c47a', headerInk: '#2e2a25',
-      accent: '#c8442f', label: '#6f6453', lunar: '#a39781', grain: true,
+      accent: '#c8442f', label: '#6f6453', lunar: '#a39781',
       num: '"DM Serif Display", serif', numW: '400',
       han: '"Noto Serif KR", serif', hanW: '900',
       txt: '"Noto Sans KR", sans-serif',
@@ -208,7 +242,16 @@
     classic: {
       bg: '#ffffff', ink: '#141414', sun: '#cc1f1f', sat: '#4a8fc7',
       dim: '#d6d6d6', line: '#8a8a8a', soft: '#cfcfcf', headerBg: '#e1edd3', headerInk: '#141414',
-      accent: '#c4161c', label: '#555555', lunar: '#9a9a9a', grain: false,
+      accent: '#c4161c', label: '#555555', lunar: '#9a9a9a',
+      num: '"Noto Sans KR", sans-serif', numW: '900',
+      han: '"Noto Sans KR", sans-serif', hanW: '900',
+      txt: '"Noto Sans KR", sans-serif',
+    },
+    classicLine: {
+      bg: '#ffffff', ink: '#141414', sun: '#cc1f1f', sat: '#4a8fc7',
+      dim: '#d6d6d6', line: '#000000', soft: '#1a1a1a', dash: '#c4c4c4', gridW: 1.5,
+      headerBg: 'transparent', headerInk: '#141414',
+      accent: '#c4161c', label: '#555555', lunar: '#9a9a9a',
       num: '"Noto Sans KR", sans-serif', numW: '900',
       han: '"Noto Sans KR", sans-serif', hanW: '900',
       txt: '"Noto Sans KR", sans-serif',
@@ -216,12 +259,16 @@
     mint: {
       bg: '#e6f0e8', ink: '#1f3b36', sun: '#d65a45', sat: '#2b7a8a',
       dim: '#b9cfc3', line: '#5d7f76', soft: '#b8d2c6', headerBg: '#9fcbb6', headerInk: '#1f3b36',
-      accent: '#1f3b36', label: '#44625b', lunar: '#7f9a92', grain: true,
+      accent: '#1f3b36', label: '#44625b', lunar: '#7f9a92',
       num: '"Jua", sans-serif', numW: '400',
       han: '"Noto Serif KR", serif', hanW: '900',
       txt: '"Noto Sans KR", sans-serif',
     },
   };
+
+  // 배경만 흰색으로 바꾼 변형
+  THEMES.retroWhite = { ...THEMES.retro, bg: '#ffffff' };
+  THEMES.mintWhite = { ...THEMES.mint, bg: '#ffffff' };
 
   const WD_HAN = ['日', '月', '火', '水', '木', '金', '土'];
   const STEMS = '甲乙丙丁戊己庚辛壬癸', BRANCHES = '子丑寅卯辰巳午未申酉戌亥';
@@ -466,8 +513,11 @@
     }
   }
 
+  let grainOn = false;
+  try { grainOn = localStorage.getItem('paperGrain') === '1'; } catch (e) {}
+
   function grain(ctx, t, seed) {
-    if (!t.grain) return;
+    if (!grainOn) return;
     const rnd = seeded(seed);
     for (let i = 0; i < 9000; i++) {
       ctx.fillStyle = rnd() > .5 ? 'rgba(80,60,30,0.07)' : 'rgba(255,255,255,0.10)';
@@ -556,10 +606,11 @@
 
     // 격자선
     ctx.strokeStyle = t.soft;
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = t.gridW || 1.2;
+    const noHeaderFill = t.headerBg === 'transparent';
     for (let i = 1; i < 7; i++) {
       ctx.beginPath();
-      ctx.moveTo(L + cw * i, gTop + (i ? hH * 0.22 : 0));
+      ctx.moveTo(L + cw * i, gTop + (noHeaderFill ? 0 : hH * 0.22));
       ctx.lineTo(L + cw * i, gBottom);
       ctx.stroke();
     }
@@ -569,7 +620,8 @@
     }
     // 각 칸 필기용 점선
     ctx.setLineDash([2, 5]);
-    ctx.strokeStyle = t.soft;
+    ctx.strokeStyle = t.dash || t.soft;
+    ctx.lineWidth = 1.2;
     for (let r = 0; r < rows; r++) {
       const yy = gTop + hH + rH * r + rH - 18;
       ctx.beginPath(); ctx.moveTo(L + 10, yy); ctx.lineTo(R - 10, yy); ctx.stroke();
@@ -643,7 +695,7 @@
     'MEMO'.split('').forEach((ch, i) => ctx.fillText(ch, L + lblW / 2, mTop + (mBottom - mTop) / 2 - 36 + i * 24 + 6));
 
     ctx.strokeStyle = t.soft;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = t.gridW || 1;
     ctx.beginPath(); ctx.moveTo(L + lblW, mTop); ctx.lineTo(L + lblW, mBottom); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(L + lblW, mTop + mrH); ctx.lineTo(R, mTop + mrH); ctx.stroke();
     for (let r = 0; r < 2; r++) {
@@ -661,7 +713,7 @@
       const yy = mTop + mrH * r + 19;
       if (d > nDays) {
         // 없는 날짜 칸은 사선 처리
-        ctx.strokeStyle = t.soft;
+        ctx.strokeStyle = t.dash || t.soft;
         ctx.beginPath();
         ctx.moveTo(L + lblW + mcw * c + 4, mTop + mrH * (r + 1) - 4);
         ctx.lineTo(L + lblW + mcw * (c + 1) - 4, mTop + mrH * r + 4);
@@ -819,6 +871,20 @@
   yearIn.addEventListener('input', () => { clearTimeout(yearIn._t); yearIn._t = setTimeout(renderAll, 250); });
   themeIn.onchange = renderAll;
   wsIn.onchange = renderAll;
+
+  const grainBtn = $('grainBtn');
+  function syncGrain() {
+    grainBtn.classList.toggle('on', grainOn);
+    grainBtn.setAttribute('aria-pressed', grainOn);
+    grainBtn.textContent = grainOn ? '종이 질감 켜짐' : '종이 질감 꺼짐';
+  }
+  grainBtn.onclick = () => {
+    grainOn = !grainOn;
+    try { localStorage.setItem('paperGrain', grainOn ? '1' : '0'); } catch (e) {}
+    syncGrain();
+    renderAll();
+  };
+  syncGrain();
 
   syncSel();
   renderAll();
