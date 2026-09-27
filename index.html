@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>레트로 달력 메이커</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #efe6d2;
+    --panel: #f8f2e4;
+    --ink: #2e2a25;
+    --muted: #7d7263;
+    --line: #cdbf9f;
+    --accent: #c8442f;
+    --accent-ink: #fff8ec;
+    --chip: #e6d7b4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Noto Sans KR", system-ui, sans-serif;
+  }
+  header {
+    padding: 28px 16px 8px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-family: "Noto Serif KR", serif;
+    font-weight: 900;
+    font-size: 30px;
+    margin: 0 0 4px;
+    letter-spacing: -0.5px;
+  }
+  h1 span { color: var(--accent); }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .controls {
+    max-width: 1280px;
+    margin: 16px auto 0;
+    padding: 18px 16px;
+    background: var(--panel);
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 24px;
+    align-items: flex-end;
+  }
+  @media (min-width: 1312px) { .controls { margin-left: auto; margin-right: auto; } }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.5px; }
+  input[type=number], select {
+    font: inherit;
+    font-size: 16px;
+    padding: 8px 10px;
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+    background: #fffdf7;
+    color: var(--ink);
+    min-width: 0;
+  }
+  input[type=number] { width: 110px; font-weight: 700; }
+  .months { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    width: 44px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1.5px solid var(--line);
+    background: #fffdf7;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: var(--accent-ink); }
+  .chip.wide { width: auto; padding: 0 12px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  .btn {
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1.5px solid var(--ink);
+    background: var(--ink);
+    color: var(--accent-ink);
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  .status { max-width: 1280px; margin: 10px auto 0; padding: 0 16px; font-size: 13px; color: var(--muted); min-height: 18px; }
+
+  .grid {
+    max-width: 1280px;
+    margin: 10px auto 60px;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: opacity .15s, border-color .15s;
+  }
+  .card.off { opacity: .45; }
+  .card.on { border-color: var(--ink); }
+  .card canvas {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1000 / 1400;
+    display: block;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(60, 45, 20, .15);
+    cursor: zoom-in;
+  }
+  .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card-foot label { display: flex; align-items: center; gap: 6px; font-weight: 700; cursor: pointer; }
+  .card-foot input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .mini-btn {
+    font: inherit; font-size: 13px; font-weight: 700;
+    padding: 5px 10px; border-radius: 7px;
+    border: 1.5px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer;
+  }
+
+  .lightbox {
+    position: fixed; inset: 0;
+    background: rgba(30, 24, 16, .82);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 16px;
+    z-index: 10;
+    cursor: zoom-out;
+  }
+  .lightbox.show { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+</style>
+</head>
+<body>
+<header>
+  <h1>레트로 달력 <span>메이커</span></h1>
+  <p>연도를 입력하면 1~12월 달력(1000×1400)을 그립니다. 원하는 달만 골라 PNG로 저장하세요.</p>
+</header>
+
+<section class="controls">
+  <div class="field">
+    <label for="year">연도</label>
+    <input type="number" id="year" min="1901" max="2099" step="1">
+  </div>
+  <div class="field">
+    <label for="theme">테마</label>
+    <select id="theme">
+      <option value="retro">레트로 크림</option>
+      <option value="classic">클래식 화이트</option>
+      <option value="mint">민트 소다</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="weekStart">주 시작</label>
+    <select id="weekStart">
+      <option value="0">일요일</option>
+      <option value="1">월요일</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>저장할 달</label>
+    <div class="months" id="months"></div>
+  </div>
+  <div class="actions">
+    <button class="btn primary" id="saveSel">선택한 달 PNG 저장</button>
+    <button class="btn ghost" id="saveZip">전체 ZIP</button>
+  </div>
+</section>
+
+<div class="status" id="status"></div>
+<main class="grid" id="grid"></main>
+<div class="lightbox" id="lightbox"><img alt="달력 확대 보기"></div>
+
+<script>
+(() => {
+  const W = 1000, H = 1400;
+
+  // ───────── 테마 ─────────
+  const THEMES = {
+    retro: {
+      bg: '#f3ead7', ink: '#2e2a25', sun: '#c8442f', sat: '#2e6e8e',
+      dim: '#cfc3ab', line: '#8f846f', soft: '#d9ccb0', headerBg: '#e3c47a', headerInk: '#2e2a25',
+      accent: '#c8442f', label: '#6f6453', lunar: '#a39781', grain: true,
+      num: '"DM Serif Display", serif', numW: '400',
+      han: '"Noto Serif KR", serif', hanW: '900',
+      txt: '"Noto Sans KR", sans-serif',
+    },
+    classic: {
+      bg: '#ffffff', ink: '#141414', sun: '#cc1f1f', sat: '#4a8fc7',
+      dim: '#d6d6d6', line: '#8a8a8a', soft: '#cfcfcf', headerBg: '#e1edd3', headerInk: '#141414',
+      accent: '#c4161c', label: '#555555', lunar: '#9a9a9a', grain: false,
+      num: '"Noto Sans KR", sans-serif', numW: '900',
+      han: '"Noto Sans KR", sans-serif', hanW: '900',
+      txt: '"Noto Sans KR", sans-serif',
+    },
+    mint: {
+      bg: '#e6f0e8', ink: '#1f3b36', sun: '#d65a45', sat: '#2b7a8a',
+      dim: '#b9cfc3', line: '#5d7f76', soft: '#b8d2c6', headerBg: '#9fcbb6', headerInk: '#1f3b36',
+      accent: '#1f3b36', label: '#44625b', lunar: '#7f9a92', grain: true,
+      num: '"Jua", sans-serif', numW: '400',
+      han: '"Noto Serif KR", serif', hanW: '900',
+      txt: '"Noto Sans KR", sans-serif',
+    },
+  };
+
+  const WD_HAN = ['日', '月', '火', '水', '木', '金', '土'];
+  const STEMS = '甲乙丙丁戊己庚辛壬癸', BRANCHES = '子丑寅卯辰巳午未申酉戌亥';
+  const STEMS_KO = '갑을병정무기경신임계', BRANCHES_KO = '자축인묘진사오미신유술해';
+  const ANIMALS = ['쥐', '소', '호랑이', '토끼', '용', '뱀', '말', '양', '원숭이', '닭', '개', '돼지'];
+  const TERMS = ['춘분', '청명', '곡우', '입하', '소만', '망종', '하지', '소서', '대서', '입추', '처서', '백로',
+                 '추분', '한로', '상강', '입동', '소설', '대설', '동지', '소한', '대한', '입춘', '우수', '경칩'];
+
+  const pad = n => String(n).padStart(2, '0');
+  const key = (y, m, d) => `${y}-${m}-${d}`; // m: 1~12
+  const dim = (y, m) => new Date(y, m, 0).getDate(); // m: 1~12
+  const dow = (y, m, d) => new Date(y, m - 1, d).getDay();
+
+  // ───────── 음력 (Intl 단기/한국 음력 달력) ─────────
+  const lunarFmt = new Intl.DateTimeFormat('ko-KR-u-ca-dangi', { timeZone: 'UTC', month: 'numeric', day: 'numeric' });
+  function lunarOf(y, m, d) {
+    const parts = lunarFmt.formatToParts(new Date(Date.UTC(y, m - 1, d, 12)));
+    const mp = parts.find(p => p.type === 'month').value;
+    const dp = parts.find(p => p.type === 'day').value;
+    return { month: parseInt(mp.replace(/\D/g, ''), 10), day: parseInt(dp, 10), leap: /\D/.test(mp) };
+  }
+
+  // ───────── 24절기 (태양 황경 근사식, Meeus) ─────────
+  function sunLongitude(ms) {
+    const jd = ms / 86400000 + 2440587.5 + 69 / 86400;
+    const T = (jd - 2451545) / 36525;
+    const r = Math.PI / 180;
+    const L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T;
+    const M = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) * r;
+    const C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * Math.sin(M)
+            + (0.019993 - 0.000101 * T) * Math.sin(2 * M) + 0.000289 * Math.sin(3 * M);
+    const om = (125.04 - 1934.136 * T) * r;
+    const lon = L0 + C - 0.00569 - 0.00478 * Math.sin(om);
+    return ((lon % 360) + 360) % 360;
+  }
+  function solarTerms(y) {
+    const out = new Map();
+    for (let m = 1; m <= 12; m++) {
+      for (let d = 1; d <= dim(y, m); d++) {
+        const t0 = Date.UTC(y, m - 1, d) - 9 * 3600000; // KST 자정
+        const a = sunLongitude(t0), b = sunLongitude(t0 + 86400000);
+        const ia = Math.floor(a / 15), ib = Math.floor((b < a ? b + 360 : b) / 15);
+        if (ia !== ib) out.set(key(y, m, d), TERMS[ib % 24]);
+      }
+    }
+    return out;
+  }
+
+  // ───────── 공휴일 / 기념일 ─────────
+  const yearCache = new Map();
+  function yearInfo(y) {
+    if (yearCache.has(y)) return yearCache.get(y);
+    const lunar = new Map();
+    const events = []; // {date:[m,d], name, holiday, rule, group}
+    const add = (m, d, name, holiday = true, rule = null, group = null) => events.push({ m, d, name, holiday, rule, group });
+
+    for (let m = 1; m <= 12; m++) for (let d = 1; d <= dim(y, m); d++) lunar.set(key(y, m, d), lunarOf(y, m, d));
+
+    add(1, 1, '신정');
+    add(3, 1, '삼일절', true, 'natl');
+    add(5, 5, '어린이날', true, 'child');
+    add(6, 6, '현충일');
+    add(8, 15, '광복절', true, 'natl');
+    add(10, 3, '개천절', true, 'natl');
+    add(10, 9, '한글날', y >= 2013 || y <= 1990, 'natl');
+    add(12, 25, '성탄절', true, 'xmas');
+    add(4, 5, '식목일', y <= 2005);
+    add(7, 17, '제헌절', y <= 2007);
+    add(5, 8, '어버이날', false);
+    add(5, 15, '스승의날', false);
+    add(10, 1, '국군의날', false);
+
+    // 음력 기반
+    const byLunar = (lm, ld) => {
+      for (const [k, v] of lunar) if (!v.leap && v.month === lm && v.day === ld) return k.split('-').map(Number).slice(1);
+      return null;
+    };
+    const shift = ([m, d], n) => { const t = new Date(y, m - 1, d + n); return [t.getMonth() + 1, t.getDate()]; };
+    const seol = byLunar(1, 1);
+    if (seol) {
+      const p = shift(seol, -1), n = shift(seol, 1);
+      add(p[0], p[1], '설 연휴', true, 'seol', 'seol');
+      add(seol[0], seol[1], '설날', true, 'seol', 'seol');
+      add(n[0], n[1], '설 연휴', true, 'seol', 'seol');
+    }
+    const buddha = byLunar(4, 8);
+    if (buddha) add(buddha[0], buddha[1], '부처님오신날', true, 'buddha');
+    const chu = byLunar(8, 15);
+    if (chu) {
+      const p = shift(chu, -1), n = shift(chu, 1);
+      add(p[0], p[1], '추석 연휴', true, 'chu', 'chu');
+      add(chu[0], chu[1], '추석', true, 'chu', 'chu');
+      add(n[0], n[1], '추석 연휴', true, 'chu', 'chu');
+    }
+    const bor = byLunar(1, 15);
+    if (bor) add(bor[0], bor[1], '정월대보름', false);
+    const dano = byLunar(5, 5);
+    if (dano) add(dano[0], dano[1], '단오', false);
+
+    // 날짜별 정리
+    const byDate = new Map();
+    for (const e of events) {
+      const k = key(y, e.m, e.d);
+      if (!byDate.has(k)) byDate.set(k, []);
+      byDate.get(k).push(e);
+    }
+    const isHoliday = k => (byDate.get(k) || []).some(e => e.holiday);
+
+    // 대체공휴일
+    const eligible = e => {
+      if (!e.holiday || !e.rule) return null;
+      if (e.rule === 'seol' || e.rule === 'chu') return y >= 2014 ? 'sun' : null;
+      if (e.rule === 'child') return y >= 2014 ? 'weekend' : null;
+      if (e.rule === 'natl') return y >= 2021 ? 'weekend' : null;
+      if (e.rule === 'buddha' || e.rule === 'xmas') return y >= 2023 ? 'weekend' : null;
+      return null;
+    };
+    const triggers = [];
+    const seenGroup = new Set();
+    for (const [k, evs] of [...byDate].sort((a, b) => cmpKey(a[0], b[0]))) {
+      const hol = evs.filter(e => e.holiday);
+      const elig = hol.filter(eligible);
+      if (!elig.length) continue;
+      const [, m, d] = k.split('-').map(Number);
+      const wd = dow(y, m, d);
+      const weekend = elig.some(e => wd === 0 || (eligible(e) === 'weekend' && wd === 6));
+      const overlap = hol.length > 1;
+      if (!weekend && !overlap) continue;
+      // 연휴 그룹은 연휴 마지막 날 이후로
+      const g = elig.find(e => e.group);
+      let after = [m, d];
+      if (g) {
+        const gs = events.filter(e => e.group === g.group);
+        const last = gs[gs.length - 1];
+        after = [last.m, last.d];
+        const gk = g.group + ':' + k;
+        if (seenGroup.has(gk)) continue;
+        seenGroup.add(gk);
+      }
+      triggers.push(after);
+    }
+    triggers.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    for (const [m, d] of triggers) {
+      let t = new Date(y, m - 1, d + 1);
+      while (t.getDay() === 0 || t.getDay() === 6 || isHoliday(key(t.getFullYear(), t.getMonth() + 1, t.getDate()))) {
+        t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+      }
+      if (t.getFullYear() !== y) continue;
+      const k = key(y, t.getMonth() + 1, t.getDate());
+      if (!byDate.has(k)) byDate.set(k, []);
+      byDate.get(k).push({ name: '대체공휴일', holiday: true });
+    }
+
+    const info = { lunar, byDate, terms: solarTerms(y) };
+    yearCache.set(y, info);
+    return info;
+  }
+  function cmpKey(a, b) {
+    const [, am, ad] = a.split('-').map(Number), [, bm, bd] = b.split('-').map(Number);
+    return am - bm || ad - bd;
+  }
+  function dayInfo(y, m, d) {
+    const info = yearInfo(y);
+    const k = key(y, m, d);
+    const evs = info.byDate.get(k) || [];
+    return {
+      holiday: evs.some(e => e.holiday),
+      names: evs.map(e => ({ text: e.name, holiday: e.holiday })),
+      term: info.terms.get(k) || null,
+      lunar: info.lunar.get(k),
+    };
+  }
+
+  // ───────── 폰트 로딩 ─────────
+  const fontReady = new Map();
+  function loadFonts(theme) {
+    const id = theme.num + theme.han;
+    if (fontReady.has(id)) return fontReady.get(id);
+    const sample = '0123456789/.MEMO음윤년 ' + WD_HAN.join('') + STEMS + BRANCHES + STEMS_KO + BRANCHES_KO + '年'
+      + ANIMALS.join('') + TERMS.join('') + '띠신정삼일절어린이날현충일광복절개천절한글날성탄절식목일제헌절어버이날스승의날국군의날설연휴날추석부처님오신날정월대보름단오대체공휴일RETROCALENDAR';
+    const specs = [
+      `${theme.numW} 60px ${theme.num}`, `${theme.hanW} 40px ${theme.han}`,
+      `700 20px ${theme.txt}`, `500 20px ${theme.txt}`, `400 20px ${theme.txt}`, `900 20px ${theme.txt}`,
+      `700 20px ${theme.han}`,
+    ];
+    const p = Promise.all(specs.map(s => document.fonts.load(s, sample).catch(() => null)))
+      .then(() => document.fonts.ready);
+    fontReady.set(id, p);
+    return p;
+  }
+
+  // ───────── 그리기 ─────────
+  function seeded(seed) {
+    let s = seed >>> 0;
+    return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  }
+
+  function fitText(ctx, text, maxW, size, weight, family) {
+    let s = size;
+    ctx.font = `${weight} ${s}px ${family}`;
+    while (ctx.measureText(text).width > maxW && s > 9) {
+      s -= 1;
+      ctx.font = `${weight} ${s}px ${family}`;
+    }
+    return s;
+  }
+
+  function colColor(t, wd, holiday) {
+    if (holiday || wd === 0) return t.sun;
+    if (wd === 6) return t.sat;
+    return t.ink;
+  }
+
+  function drawMini(ctx, t, y, m, x0, y0, w, weekStart) {
+    const cw = w / 7;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = t.accent;
+    ctx.font = `${t.numW} 26px ${t.num}`;
+    ctx.fillText(String(m), x0 + w / 2, y0 + 24);
+    ctx.font = `${t.numW} 13px ${t.num}`;
+    ctx.fillStyle = t.label;
+    ctx.fillText(String(y), x0 + w / 2 + (m >= 10 ? 36 : 28), y0 + 24);
+
+    ctx.font = `700 13px ${t.han}`;
+    for (let i = 0; i < 7; i++) {
+      const wd = (i + weekStart) % 7;
+      ctx.fillStyle = colColor(t, wd, false);
+      ctx.fillText(WD_HAN[wd], x0 + cw * i + cw / 2, y0 + 48);
+    }
+    ctx.strokeStyle = t.soft;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0 + 4, y0 + 55); ctx.lineTo(x0 + w - 4, y0 + 55); ctx.stroke();
+
+    const off = (dow(y, m, 1) - weekStart + 7) % 7;
+    ctx.font = `500 13px ${t.txt}`;
+    for (let d = 1; d <= dim(y, m); d++) {
+      const idx = off + d - 1, r = Math.floor(idx / 7), c = idx % 7;
+      const wd = (c + weekStart) % 7;
+      ctx.fillStyle = colColor(t, wd, dayInfo(y, m, d).holiday);
+      ctx.fillText(String(d), x0 + cw * c + cw / 2, y0 + 74 + r * 18);
+    }
+  }
+
+  function grain(ctx, t, seed) {
+    if (!t.grain) return;
+    const rnd = seeded(seed);
+    for (let i = 0; i < 9000; i++) {
+      ctx.fillStyle = rnd() > .5 ? 'rgba(80,60,30,0.07)' : 'rgba(255,255,255,0.10)';
+      const s = rnd() * 1.8 + .4;
+      ctx.fillRect(rnd() * W, rnd() * H, s, s);
+    }
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawMonth(canvas, y, m, t, weekStart) {
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = t.bg;
+    ctx.fillRect(0, 0, W, H);
+    grain(ctx, t, y * 100 + m);
+
+    const L = 50, R = 950, GW = R - L;
+
+    // ── 상단: 미니 달력 + 큰 월 숫자 ──
+    const prev = m === 1 ? [y - 1, 12] : [y, m - 1];
+    const next = m === 12 ? [y + 1, 1] : [y, m + 1];
+    drawMini(ctx, t, prev[0], prev[1], L, 34, 200, weekStart);
+    drawMini(ctx, t, next[0], next[1], R - 200, 34, 200, weekStart);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = t.accent;
+    ctx.font = `${t.numW} 210px ${t.num}`;
+    const mStr = String(m);
+    const mW = ctx.measureText(mStr).width;
+    ctx.fillText(mStr, W / 2, 222);
+
+    // 월 숫자 아래 영문 월 이름
+    ctx.font = `700 15px ${t.txt}`;
+    ctx.fillStyle = t.label;
+    const EN = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+    ctx.fillText(EN[m - 1], W / 2 + 3, 250);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+    // 연도(좌) · 간지(우)
+    const gs = ((y - 4) % 10 + 10) % 10, gb = ((y - 4) % 12 + 12) % 12;
+    ctx.fillStyle = t.ink;
+    ctx.textAlign = 'right';
+    ctx.font = `${t.numW} 44px ${t.num}`;
+    ctx.fillText(String(y), W / 2 - mW / 2 - 26, 212);
+    ctx.textAlign = 'left';
+    ctx.font = `${t.hanW} 38px ${t.han}`;
+    ctx.fillText(STEMS[gs] + BRANCHES[gb] + '年', W / 2 + mW / 2 + 26, 210);
+    ctx.font = `500 14px ${t.txt}`;
+    ctx.fillStyle = t.label;
+    ctx.fillText(`${STEMS_KO[gs]}${BRANCHES_KO[gb]}년 · ${ANIMALS[gb]}띠`, W / 2 + mW / 2 + 28, 234);
+
+    // ── 본 달력 ──
+    const gTop = 272, hH = 58, gBottom = 1122;
+    const cw = GW / 7;
+    const off = (dow(y, m, 1) - weekStart + 7) % 7;
+    const nDays = dim(y, m);
+    const rows = Math.ceil((off + nDays) / 7);
+    const rH = (gBottom - gTop - hH) / rows;
+
+    // 헤더 띠
+    ctx.save();
+    roundRect(ctx, L, gTop, GW, gBottom - gTop, 10);
+    ctx.clip();
+    ctx.fillStyle = t.headerBg;
+    ctx.fillRect(L, gTop, GW, hH);
+    ctx.restore();
+
+    ctx.textAlign = 'center';
+    ctx.font = `${t.hanW} 32px ${t.han}`;
+    for (let i = 0; i < 7; i++) {
+      const wd = (i + weekStart) % 7;
+      ctx.fillStyle = wd === 0 ? t.sun : wd === 6 ? t.sat : t.headerInk;
+      ctx.fillText(WD_HAN[wd], L + cw * i + cw / 2, gTop + 41);
+    }
+
+    // 격자선
+    ctx.strokeStyle = t.soft;
+    ctx.lineWidth = 1.2;
+    for (let i = 1; i < 7; i++) {
+      ctx.beginPath();
+      ctx.moveTo(L + cw * i, gTop + (i ? hH * 0.22 : 0));
+      ctx.lineTo(L + cw * i, gBottom);
+      ctx.stroke();
+    }
+    for (let r = 1; r < rows; r++) {
+      const yy = gTop + hH + rH * r;
+      ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke();
+    }
+    // 각 칸 필기용 점선
+    ctx.setLineDash([2, 5]);
+    ctx.strokeStyle = t.soft;
+    for (let r = 0; r < rows; r++) {
+      const yy = gTop + hH + rH * r + rH - 18;
+      ctx.beginPath(); ctx.moveTo(L + 10, yy); ctx.lineTo(R - 10, yy); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.strokeStyle = t.line;
+    ctx.lineWidth = 2.5;
+    roundRect(ctx, L, gTop, GW, gBottom - gTop, 10);
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(L, gTop + hH); ctx.lineTo(R, gTop + hH); ctx.stroke();
+
+    // 날짜
+    const numSize = Math.min(rH * 0.44, 66);
+    for (let i = 0; i < rows * 7; i++) {
+      const r = Math.floor(i / 7), c = i % 7;
+      const wd = (c + weekStart) % 7;
+      const dt = new Date(y, m - 1, 1 + i - off);
+      const dy = dt.getFullYear(), dm = dt.getMonth() + 1, dd = dt.getDate();
+      const inMonth = dm === m && dy === y;
+      const cx = L + cw * c + cw / 2;
+      const top = gTop + hH + rH * r;
+      const di = dayInfo(dy, dm, dd);
+
+      ctx.textAlign = 'center';
+      ctx.font = `${t.numW} ${numSize}px ${t.num}`;
+      ctx.fillStyle = inMonth ? colColor(t, wd, di.holiday) : t.dim;
+      const baseY = top + 14 + numSize * 0.86;
+      ctx.fillText(String(dd), cx, baseY);
+      if (!inMonth) continue;
+
+      // 라벨: 공휴일/기념일 · 절기 · 음력(1일, 15일)
+      const lines = [];
+      for (const n of di.names) lines.push({ text: n.text, color: n.holiday ? t.sun : t.label, w: n.holiday ? 700 : 500 });
+      if (di.term) lines.push({ text: di.term, color: t.label, w: 500 });
+      const lu = di.lunar;
+      if (lu && (lu.day === 1 || lu.day === 15)) lines.push({ text: `음 ${lu.leap ? '윤' : ''}${lu.month}.${lu.day}`, color: t.lunar, w: 400 });
+
+      const maxLines = rH > 150 ? 3 : 2;
+      // 2줄을 넘으면 뒤쪽 항목들을 ' · '로 합침
+      let merged = lines.slice(0, maxLines);
+      if (lines.length > maxLines) {
+        merged[maxLines - 1] = { ...lines[maxLines - 1], text: lines.slice(maxLines - 1).map(l => l.text).join(' · ') };
+      }
+      let ly = baseY + 22;
+      for (const ln of merged) {
+        const s = fitText(ctx, ln.text, cw - 12, 14, ln.w, t.txt);
+        ctx.fillStyle = ln.color;
+        ctx.fillText(ln.text, cx, ly);
+        ly += s + 4;
+      }
+    }
+
+    // ── MEMO ──
+    const mTop = 1150, mBottom = 1336, lblW = 46;
+    const mcw = (GW - lblW) / 16;
+    const mrH = (mBottom - mTop) / 2;
+    ctx.strokeStyle = t.line;
+    ctx.lineWidth = 2;
+    roundRect(ctx, L, mTop, GW, mBottom - mTop, 8);
+    ctx.stroke();
+    ctx.save();
+    roundRect(ctx, L, mTop, GW, mBottom - mTop, 8);
+    ctx.clip();
+    ctx.fillStyle = t.headerBg;
+    ctx.fillRect(L, mTop, lblW, mBottom - mTop);
+    ctx.restore();
+    ctx.fillStyle = t.headerInk;
+    ctx.font = `900 17px ${t.txt}`;
+    ctx.textAlign = 'center';
+    'MEMO'.split('').forEach((ch, i) => ctx.fillText(ch, L + lblW / 2, mTop + (mBottom - mTop) / 2 - 36 + i * 24 + 6));
+
+    ctx.strokeStyle = t.soft;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(L + lblW, mTop); ctx.lineTo(L + lblW, mBottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(L + lblW, mTop + mrH); ctx.lineTo(R, mTop + mrH); ctx.stroke();
+    for (let r = 0; r < 2; r++) {
+      const yy = mTop + mrH * r + 26;
+      ctx.beginPath(); ctx.moveTo(L + lblW, yy); ctx.lineTo(R, yy); ctx.stroke();
+    }
+    for (let i = 1; i < 16; i++) {
+      const xx = L + lblW + mcw * i;
+      ctx.beginPath(); ctx.moveTo(xx, mTop); ctx.lineTo(xx, mBottom); ctx.stroke();
+    }
+    ctx.font = `700 14px ${t.txt}`;
+    for (let d = 1; d <= 32; d++) {
+      const r = d <= 16 ? 0 : 1, c = (d - 1) % 16;
+      const cx = L + lblW + mcw * c + mcw / 2;
+      const yy = mTop + mrH * r + 19;
+      if (d > nDays) {
+        // 없는 날짜 칸은 사선 처리
+        ctx.strokeStyle = t.soft;
+        ctx.beginPath();
+        ctx.moveTo(L + lblW + mcw * c + 4, mTop + mrH * (r + 1) - 4);
+        ctx.lineTo(L + lblW + mcw * (c + 1) - 4, mTop + mrH * r + 4);
+        ctx.stroke();
+        continue;
+      }
+      ctx.fillStyle = colColor(t, dow(y, m, d), dayInfo(y, m, d).holiday);
+      ctx.fillText(String(d), cx, yy);
+    }
+
+    // ── 푸터 ──
+    ctx.font = `500 13px ${t.txt}`;
+    ctx.fillStyle = t.lunar;
+    ctx.textAlign = 'left';
+    ctx.fillText(`${y}.${pad(m)}`, L, 1366);
+    ctx.textAlign = 'right';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
+    ctx.fillText(`RETRO CALENDAR ${y}`, R, 1366);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  }
+
+  // ───────── UI ─────────
+  const $ = id => document.getElementById(id);
+  const yearIn = $('year'), themeIn = $('theme'), wsIn = $('weekStart');
+  const grid = $('grid'), status = $('status');
+  const selected = new Set([...Array(12)].map((_, i) => i + 1));
+  const canvases = [];
+  const cards = [];
+
+  yearIn.value = new Date().getFullYear();
+
+  // 월 선택 칩
+  const monthsEl = $('months');
+  const chips = [];
+  for (let m = 1; m <= 12; m++) {
+    const b = document.createElement('button');
+    b.className = 'chip on';
+    b.textContent = m + '월';
+    b.onclick = () => toggle(m);
+    monthsEl.appendChild(b);
+    chips.push(b);
+  }
+  const allBtn = document.createElement('button');
+  allBtn.className = 'chip wide';
+  allBtn.textContent = '전체';
+  allBtn.onclick = () => { for (let m = 1; m <= 12; m++) selected.add(m); syncSel(); };
+  const noneBtn = document.createElement('button');
+  noneBtn.className = 'chip wide';
+  noneBtn.textContent = '해제';
+  noneBtn.onclick = () => { selected.clear(); syncSel(); };
+  monthsEl.append(allBtn, noneBtn);
+
+  function toggle(m) { selected.has(m) ? selected.delete(m) : selected.add(m); syncSel(); }
+  function syncSel() {
+    chips.forEach((c, i) => c.classList.toggle('on', selected.has(i + 1)));
+    cards.forEach((c, i) => {
+      const on = selected.has(i + 1);
+      c.el.classList.toggle('on', on);
+      c.el.classList.toggle('off', !on);
+      c.cb.checked = on;
+    });
+    $('saveSel').disabled = selected.size === 0;
+    $('saveSel').textContent = selected.size === 12 ? '12개월 PNG 저장' : `선택한 ${selected.size}개월 PNG 저장`;
+  }
+
+  // 미리보기 카드
+  for (let m = 1; m <= 12; m++) {
+    const el = document.createElement('div');
+    el.className = 'card on';
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    cv.onclick = () => openLightbox(cv);
+    const foot = document.createElement('div');
+    foot.className = 'card-foot';
+    const lab = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.onchange = () => toggle(m);
+    lab.append(cb, document.createTextNode(m + '월'));
+    const dl = document.createElement('button');
+    dl.className = 'mini-btn';
+    dl.textContent = 'PNG';
+    dl.onclick = () => downloadOne(m);
+    foot.append(lab, dl);
+    el.append(cv, foot);
+    grid.appendChild(el);
+    canvases.push(cv);
+    cards.push({ el, cb });
+  }
+
+  function currentYear() {
+    const y = parseInt(yearIn.value, 10);
+    if (!Number.isFinite(y) || y < 1901 || y > 2099) return null;
+    return y;
+  }
+
+  let renderToken = 0;
+  async function renderAll() {
+    const y = currentYear();
+    if (y === null) { status.textContent = '연도는 1901 ~ 2099 사이로 입력해 주세요.'; return; }
+    const t = THEMES[themeIn.value];
+    const ws = parseInt(wsIn.value, 10);
+    const token = ++renderToken;
+    status.textContent = '폰트를 불러오는 중…';
+    await loadFonts(t);
+    if (token !== renderToken) return;
+    status.textContent = `${y}년 달력을 그리는 중…`;
+    for (let m = 1; m <= 12; m++) {
+      drawMonth(canvases[m - 1], y, m, t, ws);
+      await new Promise(r => setTimeout(r, 0));
+      if (token !== renderToken) return;
+    }
+    status.textContent = `${y}년 달력 완성 · 각 1000×1400px · 미리보기를 누르면 크게 볼 수 있어요. (선거일 등 임시공휴일은 표시되지 않습니다)`;
+  }
+
+  function fileName(m) { return `calendar-${currentYear()}-${pad(m)}.png`; }
+  const toBlob = cv => new Promise(res => cv.toBlob(res, 'image/png'));
+  function saveBlob(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  async function downloadOne(m) { saveBlob(await toBlob(canvases[m - 1]), fileName(m)); }
+
+  async function downloadZip(months) {
+    if (!window.JSZip) {
+      // ZIP 라이브러리를 못 불러온 경우 개별 저장
+      for (const m of months) { await downloadOne(m); await new Promise(r => setTimeout(r, 350)); }
+      return;
+    }
+    status.textContent = 'ZIP 파일을 만드는 중…';
+    const zip = new JSZip();
+    for (const m of months) zip.file(fileName(m), await toBlob(canvases[m - 1]));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    saveBlob(blob, `calendar-${currentYear()}${months.length === 12 ? '' : '-' + months.map(pad).join('_')}.zip`);
+    status.textContent = `ZIP 저장 완료 (${months.length}개월)`;
+  }
+
+  $('saveSel').onclick = async () => {
+    const months = [...selected].sort((a, b) => a - b);
+    if (!months.length) return;
+    if (months.length === 1) return downloadOne(months[0]);
+    await downloadZip(months);
+  };
+  $('saveZip').onclick = () => downloadZip([...Array(12)].map((_, i) => i + 1));
+
+  const lb = $('lightbox');
+  function openLightbox(cv) { lb.querySelector('img').src = cv.toDataURL('image/png'); lb.classList.add('show'); }
+  lb.onclick = () => lb.classList.remove('show');
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('show'); });
+
+  yearIn.addEventListener('input', () => { clearTimeout(yearIn._t); yearIn._t = setTimeout(renderAll, 250); });
+  themeIn.onchange = renderAll;
+  wsIn.onchange = renderAll;
+
+  syncSel();
+  renderAll();
+})();
+</script>
+</body>
+</html>
