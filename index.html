@@ -204,6 +204,13 @@
     <label>저장할 달</label>
     <div class="months" id="months"></div>
   </div>
+  <div class="field">
+    <label for="saveMode">저장 방식 (2개월 이상)</label>
+    <select id="saveMode">
+      <option value="zip">ZIP 한 파일로</option>
+      <option value="each">PNG 개별 저장</option>
+    </select>
+  </div>
   <div class="actions">
     <button class="btn primary" id="saveSel">선택한 달 PNG 저장</button>
     <button class="btn ghost" id="saveZip">전체 ZIP</button>
@@ -775,8 +782,12 @@
       c.el.classList.toggle('off', !on);
       c.cb.checked = on;
     });
-    $('saveSel').disabled = selected.size === 0;
-    $('saveSel').textContent = selected.size === 12 ? '12개월 PNG 저장' : `선택한 ${selected.size}개월 PNG 저장`;
+    const n = selected.size;
+    const zipMode = $('saveMode').value === 'zip';
+    $('saveSel').disabled = n === 0;
+    $('saveMode').disabled = n < 2;
+    const what = n === 12 ? '12개월' : `선택한 ${n}개월`;
+    $('saveSel').textContent = n >= 2 && zipMode ? `${what} ZIP 저장` : `${what} PNG 저장`;
   }
 
   // 미리보기 카드
@@ -841,12 +852,19 @@
   }
   async function downloadOne(m) { saveBlob(await toBlob(canvases[m - 1]), fileName(m)); }
 
-  async function downloadZip(months) {
-    if (!window.JSZip) {
-      // ZIP 라이브러리를 못 불러온 경우 개별 저장
-      for (const m of months) { await downloadOne(m); await new Promise(r => setTimeout(r, 350)); }
-      return;
+  async function downloadEach(months) {
+    for (let i = 0; i < months.length; i++) {
+      status.textContent = `PNG 저장 중… (${i + 1}/${months.length})`;
+      await downloadOne(months[i]);
+      // 브라우저가 연속 다운로드를 막지 않도록 간격을 둠
+      await new Promise(r => setTimeout(r, 400));
     }
+    status.textContent = `PNG 개별 저장 완료 (${months.length}개월)`;
+  }
+
+  async function downloadZip(months) {
+    // ZIP 라이브러리를 못 불러온 경우 개별 저장
+    if (!window.JSZip) return downloadEach(months);
     status.textContent = 'ZIP 파일을 만드는 중…';
     const zip = new JSZip();
     for (const m of months) zip.file(fileName(m), await toBlob(canvases[m - 1]));
@@ -859,8 +877,10 @@
     const months = [...selected].sort((a, b) => a - b);
     if (!months.length) return;
     if (months.length === 1) return downloadOne(months[0]);
-    await downloadZip(months);
+    if ($('saveMode').value === 'each') await downloadEach(months);
+    else await downloadZip(months);
   };
+  $('saveMode').onchange = syncSel;
   $('saveZip').onclick = () => downloadZip([...Array(12)].map((_, i) => i + 1));
 
   const lb = $('lightbox');
