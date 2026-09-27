@@ -455,7 +455,7 @@
     const id = theme.num + theme.han;
     if (fontReady.has(id)) return fontReady.get(id);
     const sample = '0123456789/.MEMO음윤년 ' + WD_HAN.join('') + STEMS + BRANCHES + STEMS_KO + BRANCHES_KO + '年'
-      + ANIMALS.join('') + TERMS.join('') + '띠신정삼일절어린이날현충일광복절개천절한글날성탄절식목일제헌절어버이날스승의날국군의날설연휴날추석부처님오신날정월대보름단오대체공휴일RETROCALENDAR';
+      + ANIMALS.join('') + TERMS.join('') + '띠신정삼일절어린이날현충일광복절개천절한글날성탄절식목일제헌절어버이날스승의날국군의날설연휴날추석부처님오신날정월대보름단오대체공휴일';
     const specs = [
       `${theme.numW} 60px ${theme.num}`, `${theme.hanW} 40px ${theme.han}`,
       `700 20px ${theme.txt}`, `500 20px ${theme.txt}`, `400 20px ${theme.txt}`, `900 20px ${theme.txt}`,
@@ -731,15 +731,6 @@
       ctx.fillText(String(d), cx, yy);
     }
 
-    // ── 푸터 ──
-    ctx.font = `500 13px ${t.txt}`;
-    ctx.fillStyle = t.lunar;
-    ctx.textAlign = 'left';
-    ctx.fillText(`${y}.${pad(m)}`, L, 1366);
-    ctx.textAlign = 'right';
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
-    ctx.fillText(`RETRO CALENDAR ${y}`, R, 1366);
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   }
 
   // ───────── UI ─────────
